@@ -24,7 +24,13 @@ def adjust_brightness(image):
 
 augmentations = [rotate_image, flip_image, adjust_brightness]
 
-training_data = []
+# Set chunk size to process data in smaller batches
+chunk_size = 1000  # Adjust as needed
+
+# Create lists to store the images and labels
+X = []
+y = []
+
 def create_training_data():
     for category in CATEGORIES:
         path = os.path.join(DIRECTORY, category)
@@ -34,7 +40,8 @@ def create_training_data():
                 img_array = cv2.imread(os.path.join(path, img), cv2.IMREAD_GRAYSCALE)
                 new_array = cv2.resize(img_array, (IMG_SIZE, IMG_SIZE))
                 new_array = new_array / 255.0
-                training_data.append([new_array, class_num])
+                X.append(new_array)
+                y.append(class_num)
 
                 # Augment only for 'damage' (category 1) to solve imbalance
                 if class_num == 0:  # Skip augmentation for 'no_damage'
@@ -42,28 +49,43 @@ def create_training_data():
                 
                 augmentation_func = random.choice(augmentations)
                 augmented_image = augmentation_func(new_array)
-                training_data.append([augmented_image, class_num])
+                X.append(augmented_image)
+                y.append(class_num)
             except Exception as e:
                 continue
 
-            random.shuffle(training_data)
+            # If we've reached the chunk size, process and save
+            if len(X) >= chunk_size:
+                # Convert X and y to numpy arrays with appropriate dtype
+                X_chunk = np.array(X, dtype=np.float32)
+                y_chunk = np.array(y, dtype=np.int32)
 
-X = []
-y = []
+                # Save the chunk to pickle
+                pickle_out = open(f"X_chunk_{len(X) // chunk_size}.pickle", "wb")
+                pickle.dump(X_chunk, pickle_out)
+                pickle_out.close()
 
-for features, label in training_data:
-    X.append(features)
-    y.append(label)
+                pickle_out = open(f"y_chunk_{len(X) // chunk_size}.pickle", "wb")
+                pickle.dump(y_chunk, pickle_out)
+                pickle_out.close()
 
-X = np.array(X).reshape(-1, IMG_SIZE, IMG_SIZE, 1)
+                # Clear the lists to start the next chunk
+                X.clear()
+                y.clear()
 
+# Call the function to create training data
 create_training_data()
-print(f"Total images: {len(training_data)}")
 
-pickle_out = open("X.pickle", "wb")
-pickle.dump(X, pickle_out)
-pickle_out.close()
+# If any remaining data is left after the last chunk, save it
+if X:
+    X_chunk = np.array(X, dtype=np.float32)
+    y_chunk = np.array(y, dtype=np.int32)
+    pickle_out = open(f"X_chunk_{len(X) // chunk_size}.pickle", "wb")
+    pickle.dump(X_chunk, pickle_out)
+    pickle_out.close()
 
-pickle_out = open("y.pickle", "wb")
-pickle.dump(y, pickle_out)
-pickle_out.close()
+    pickle_out = open(f"y_chunk_{len(X) // chunk_size}.pickle", "wb")
+    pickle.dump(y_chunk, pickle_out)
+    pickle_out.close()
+
+print(f"Data processing complete. Total images processed in chunks.")
