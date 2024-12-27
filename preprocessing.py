@@ -31,7 +31,10 @@ chunk_size = 1000  # Adjust as needed
 X = []
 y = []
 
+chunk_counter = 0
+
 def create_training_data():
+    global chunk_counter  # Explicitly declare global to modify the counter
     for category in CATEGORIES:
         path = os.path.join(DIRECTORY, category)
         class_num = CATEGORIES.index(category)
@@ -58,16 +61,17 @@ def create_training_data():
             if len(X) >= chunk_size:
                 # Convert X and y to numpy arrays with appropriate dtype
                 X_chunk = np.array(X, dtype=np.float32)
-                y_chunk = np.array(y, dtype=np.int32)
+                y_chunk = np.array(y, dtype=np.float32)
 
-                # Save the chunk to pickle
-                pickle_out = open(f"X_chunk_{len(X) // chunk_size}.pickle", "wb")
-                pickle.dump(X_chunk, pickle_out)
-                pickle_out.close()
+                # Save the chunk to pickle with correct naming
+                with open(f"X_chunk_{chunk_counter}.pickle", "wb") as pickle_out:
+                    pickle.dump(X_chunk, pickle_out)
 
-                pickle_out = open(f"y_chunk_{len(X) // chunk_size}.pickle", "wb")
-                pickle.dump(y_chunk, pickle_out)
-                pickle_out.close()
+                with open(f"y_chunk_{chunk_counter}.pickle", "wb") as pickle_out:
+                    pickle.dump(y_chunk, pickle_out)
+
+                # Increment the chunk counter
+                chunk_counter += 1
 
                 # Clear the lists to start the next chunk
                 X.clear()
@@ -80,12 +84,10 @@ create_training_data()
 if X:
     X_chunk = np.array(X, dtype=np.float32)
     y_chunk = np.array(y, dtype=np.int32)
-    pickle_out = open(f"X_chunk_{len(X) // chunk_size}.pickle", "wb")
-    pickle.dump(X_chunk, pickle_out)
-    pickle_out.close()
+    with open(f"X_chunk_{chunk_counter}.pickle", "wb") as pickle_out:
+        pickle.dump(X_chunk, pickle_out)
 
-    pickle_out = open(f"y_chunk_{len(X) // chunk_size}.pickle", "wb")
-    pickle.dump(y_chunk, pickle_out)
-    pickle_out.close()
+    with open(f"y_chunk_{chunk_counter}.pickle", "wb") as pickle_out:
+        pickle.dump(y_chunk, pickle_out)
 
 print(f"Data processing complete. Total images processed in chunks.")
