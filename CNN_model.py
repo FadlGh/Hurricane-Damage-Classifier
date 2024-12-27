@@ -25,12 +25,15 @@ print(len(X))
 model = Sequential([
     Conv2D(32, kernel_size=(3, 3), activation='relu', input_shape=(256, 256, 1)),
     MaxPooling2D(pool_size=(2, 2)),
-    
+    Dropout(0.25),
+
     Conv2D(32, kernel_size=(3, 3), activation='relu'),
     MaxPooling2D(pool_size=(2, 2)),
+    Dropout(0.25),
 
     Flatten(),
     Dense(64, activation='relu'),
+    Dropout(0.5),
     Dense(1, activation='sigmoid') 
 ])
 
@@ -38,4 +41,4 @@ model.compile(loss='binary_crossentropy',
               optimizer='adam',
               metrics=['accuracy'])
 
-model.fit(X, y, batch_size=16, epochs=10, validation_split=0.1)
+model.fit(X, y, batch_size=32, epochs=10, validation_split=0.15)
