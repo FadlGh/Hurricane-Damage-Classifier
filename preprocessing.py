@@ -1,93 +1,48 @@
 import os
-import cv2
-import random
-import pickle
-import numpy as np
+import tensorflow as tf
 
 IMG_SIZE = 256
 CATEGORIES = ['damage', 'no_damage']
 DIRECTORY = 'archive'
 
-def rotate_image(image):
-    angle = random.randint(-30, 30)
-    (h, w) = image.shape[:2]
-    center = (w // 2, h // 2)
-    matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
-    return cv2.warpAffine(image, matrix, (w, h))
-
-def flip_image(image):
-    return cv2.flip(image, 1) 
-
-def adjust_brightness(image):
-    factor = random.uniform(0.7, 1.3)
-    return cv2.convertScaleAbs(image, alpha=factor, beta=0)
-
-augmentations = [rotate_image, flip_image, adjust_brightness]
-
-# Set chunk size to process data in smaller batches
-chunk_size = 1000  # Adjust as needed
-
-# Create lists to store the images and labels
-X = []
-y = []
-
-chunk_counter = 0
+def augment_image(image):
+    image = tf.image.random_flip_left_right(image)  # Random horizontal flip
+    image = tf.image.random_brightness(image, max_delta=0.3)  # Random brightness
+    image = tf.image.random_contrast(image, lower=0.7, upper=1.3)  # Random contrast
+    image = tf.image.random_flip_up_down(image)  # Random vertical flip
+    return image
 
 def create_training_data():
-    global chunk_counter  # Explicitly declare global to modify the counter
+    file_paths = []
+    labels = []
+    
     for category in CATEGORIES:
         path = os.path.join(DIRECTORY, category)
         class_num = CATEGORIES.index(category)
         for img in os.listdir(path):
             try:
-                img_array = cv2.imread(os.path.join(path, img), cv2.IMREAD_GRAYSCALE)
-                new_array = cv2.resize(img_array, (IMG_SIZE, IMG_SIZE))
-                new_array = new_array / 255.0
-                X.append(new_array)
-                y.append(class_num)
-
-                # Augment only for 'damage' (category 1) to solve imbalance
-                if class_num == 0:  # Skip augmentation for 'no_damage'
-                    continue
-                
-                augmentation_func = random.choice(augmentations)
-                augmented_image = augmentation_func(new_array)
-                X.append(augmented_image)
-                y.append(class_num)
+               file_paths.append(os.path.join(path, img))
+               labels.append(class_num)
             except Exception as e:
-                continue
+                print(e)
+    
+    dataset = tf.data.Dataset.from_tensor_slices((file_paths, labels))
+    
+    def process_image(file_path, label):
+        image = tf.io.read_file(file_path)  # Read the image from file
+        image = tf.image.decode_jpeg(image, channels=3)  # Decode as RGB
+        image = tf.image.rgb_to_grayscale(image)  # Convert RGB to grayscale
+        image = tf.image.resize(image, (IMG_SIZE, IMG_SIZE))  # Resize image
+        image = tf.cast(image, tf.float32) / 255.0  # Normalize image
+        # Augment only for 'damage' (category 1) to solve inbalance
+        if label == 0:
+            image = augment_image(image) # Apply augmentation
+        return image, label
 
-            # If we've reached the chunk size, process and save
-            if len(X) >= chunk_size:
-                # Convert X and y to numpy arrays with appropriate dtype
-                X_chunk = np.array(X, dtype=np.float32)
-                y_chunk = np.array(y, dtype=np.float32)
+    dataset = dataset.map(process_image, num_parallel_calls=tf.data.AUTOTUNE)
+     
+    dataset = dataset.batch(32).prefetch(tf.data.AUTOTUNE)
+    return dataset
 
-                # Save the chunk to pickle with correct naming
-                with open(f"X_chunk_{chunk_counter}.pickle", "wb") as pickle_out:
-                    pickle.dump(X_chunk, pickle_out)
-
-                with open(f"y_chunk_{chunk_counter}.pickle", "wb") as pickle_out:
-                    pickle.dump(y_chunk, pickle_out)
-
-                # Increment the chunk counter
-                chunk_counter += 1
-
-                # Clear the lists to start the next chunk
-                X.clear()
-                y.clear()
-
-# Call the function to create training data
-create_training_data()
-
-# If any remaining data is left after the last chunk, save it
-if X:
-    X_chunk = np.array(X, dtype=np.float32)
-    y_chunk = np.array(y, dtype=np.int32)
-    with open(f"X_chunk_{chunk_counter}.pickle", "wb") as pickle_out:
-        pickle.dump(X_chunk, pickle_out)
-
-    with open(f"y_chunk_{chunk_counter}.pickle", "wb") as pickle_out:
-        pickle.dump(y_chunk, pickle_out)
-
-print(f"Data processing complete. Total images processed in chunks.")
+train_dataset = create_training_data()
+print("Created training data successfully")

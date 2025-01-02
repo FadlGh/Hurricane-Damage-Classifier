@@ -1,8 +1,6 @@
-import numpy as np
-import pickle
-from tf_keras.models import Sequential
-from tf_keras.layers import Conv2D, MaxPooling2D, Dropout, Flatten, Dense
-from tf_keras.regularizers import l2
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Dropout, Flatten, Dense
+from tensorflow.keras.regularizers import l2
 import numpy as np
 import pickle
 
@@ -22,8 +20,6 @@ X = np.array(X, dtype=np.float32)
 y = np.array(y, dtype=np.float32).flatten()
 
 X = X.reshape(-1, 256, 256, 1)
-
-print(len(X))
 
 model = Sequential([
     Conv2D(32, kernel_size=(3, 3), activation='relu', input_shape=(256, 256, 1),
