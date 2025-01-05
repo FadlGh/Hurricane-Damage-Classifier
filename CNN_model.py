@@ -1,45 +1,47 @@
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Dropout, Flatten, Dense
 from tensorflow.keras.regularizers import l2
-import numpy as np
-import pickle
+from tensorflow.keras.callbacks import EarlyStopping
+from preprocessing import train_dataset
 
-X = []
-y = []
+# Split the dataset into training and validation sets
+val_dataset = train_dataset.take(3600)
+model_dataset = train_dataset.skip(3600)
 
-for i in range(16):  # Edit number based on how many chunks you have
-    with open(f'X_chunk_{i}.pickle', 'rb') as f:
-        X_chunk = pickle.load(f)
-    with open(f'y_chunk_{i}.pickle', 'rb') as f:
-        y_chunk = pickle.load(f)
+for batch_images, batch_labels in val_dataset.take(1):
+    print("Validation batch shape:", batch_images.shape)
     
-    X.extend(X_chunk)
-    y.extend(y_chunk)
-
-X = np.array(X, dtype=np.float32)
-y = np.array(y, dtype=np.float32).flatten()
-
-X = X.reshape(-1, 256, 256, 1)
-
+# Model definition
 model = Sequential([
-    Conv2D(32, kernel_size=(3, 3), activation='relu', input_shape=(256, 256, 1),
-           kernel_regularizer=l2(0.01)),
+    Conv2D(32, kernel_size=(3, 3), activation='relu', input_shape=(256, 256, 1), kernel_regularizer=l2(0.01)),
     MaxPooling2D(pool_size=(2, 2)),
     Dropout(0.25),
 
-    Conv2D(32, kernel_size=(3, 3), activation='relu', 
-           kernel_regularizer=l2(0.01)),
+    Conv2D(64, kernel_size=(3, 3), activation='relu', kernel_regularizer=l2(0.01)),
     MaxPooling2D(pool_size=(2, 2)),
     Dropout(0.25),
 
     Flatten(),
-    Dense(64, activation='relu', kernel_regularizer=l2(0.01)),
+    Dense(128, activation='relu', kernel_regularizer=l2(0.01)),
     Dropout(0.5),
     Dense(1, activation='sigmoid', kernel_regularizer=l2(0.01))
 ])
 
-model.compile(loss='binary_crossentropy',
-              optimizer='adam',
-              metrics=['accuracy'])
+# Compile the model
+model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 
-model.fit(X, y, batch_size=32, epochs=7, validation_split=0.15)
+early_stopping = EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
+
+# Train the model
+model.fit(
+    model_dataset,
+    validation_data=val_dataset,
+    steps_per_epoch=1500,
+    epochs=20,  # Allow up to 20 epochs
+    callbacks=[early_stopping]
+)
+
+# Validate dataset and model compatibility
+for images, labels in train_dataset.take(1):
+    predictions = model(images)  # Forward pass
+    print("Model passed dataset compatibility test!")

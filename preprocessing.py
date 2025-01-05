@@ -29,39 +29,34 @@ def create_training_data():
     # Create initial dataset
     dataset = tf.data.Dataset.from_tensor_slices((file_paths, labels))
 
-    def process_image(file_path, label):
-        """Process a single image and apply grayscale and resizing."""
+    def process_and_augment(file_path, label):
+        """Process a single image and optionally augment."""
         image = tf.io.read_file(file_path)  # Read the image from file
         image = tf.image.decode_jpeg(image, channels=3)  # Decode as RGB
         image = tf.image.rgb_to_grayscale(image)  # Convert RGB to grayscale
         image = tf.image.resize(image, (IMG_SIZE, IMG_SIZE))  # Resize image
         image = tf.cast(image, tf.float32) / 255.0  # Normalize image
-        return image, label
-
-    def augment_if_needed(image, label):
-        """Augment the image if it belongs to the 'damage' class."""
-        if label == 0:  # If 'damage' class
+        
+        if label == 0:  # If 'damage' class, augment the image
             augmented_image = augment_image(image)
-            # Return both the original and augmented image
             return tf.data.Dataset.from_tensors((image, label)).concatenate(
                 tf.data.Dataset.from_tensors((augmented_image, label))
             )
         else:
-            # Return the original image for 'no_damage' class
             return tf.data.Dataset.from_tensors((image, label))
 
-    # Map preprocessing and augmentation
-    dataset = dataset.map(process_image, num_parallel_calls=tf.data.AUTOTUNE)
-    
-    # Augment the 'damage' class
-    dataset = dataset.flat_map(augment_if_needed)
+    # Apply preprocessing and augmentation
+    dataset = dataset.flat_map(process_and_augment)
 
-    dataset = dataset.shuffle(1000).batch(32).prefetch(tf.data.AUTOTUNE)
+    # Batch, shuffle, and prefetch
+    dataset = dataset.batch(16).shuffle(1000).repeat().prefetch(tf.data.AUTOTUNE)
     return dataset
 
+# Create training dataset
 train_dataset = create_training_data()
 print("Created training data successfully")
 
+# Debug dataset
 for images, labels in train_dataset.take(1):
-    print(images.shape)  # Should print (batch_size, 256, 256, 1)
-    print(labels.shape)  # Should print (batch_size,)
+    print(f"Images shape: {images.shape}")  # Expected: (32, 256, 256, 1)
+    print(f"Labels shape: {labels.shape}")  # Expected: (32,)
