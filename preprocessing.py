@@ -1,7 +1,7 @@
 import os
 import tensorflow as tf
 
-IMG_SIZE = 256
+IMG_SIZE = 128
 CATEGORIES = ['damage', 'no_damage']
 DIRECTORY = 'archive'
 
@@ -58,5 +58,5 @@ print("Created training data successfully")
 
 # Debug dataset
 for images, labels in train_dataset.take(1):
-    print(f"Images shape: {images.shape}")  # Expected: (32, 256, 256, 1)
+    print(f"Images shape: {images.shape}")  # Expected: (32, 128, 128, 1)
     print(f"Labels shape: {labels.shape}")  # Expected: (32,)

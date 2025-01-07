@@ -1,4 +1,5 @@
 /archive
 *.pickle
 /tf_env
+/my_dir
 /__pycache__
