@@ -52,10 +52,9 @@ def create_training_data():
     dataset = dataset.batch(16).shuffle(1000).repeat().prefetch(tf.data.AUTOTUNE)
     return dataset
 
-# Create training dataset
 train_dataset = create_training_data()
 print("Created training data successfully")
-
+    
 # Debug dataset
 for images, labels in train_dataset.take(1):
     print(f"Images shape: {images.shape}")  # Expected: (32, 128, 128, 1)

@@ -1,6 +1,5 @@
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Dropout, Flatten, Dense
-from tensorflow.keras.regularizers import l2
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.optimizers import Adam
 from preprocessing import train_dataset
@@ -54,38 +53,42 @@ def build_model(hp):
     )
     return model
 
-tuner = kt.RandomSearch(
-    build_model,
-    objective='val_accuracy',
-    max_trials=10,  # Number of hyperparameter combinations to try
-    directory='my_dir',
-    project_name='hyperparameter_tuning'
-)
+def main():
+    tuner = kt.RandomSearch(
+        build_model,
+        objective='val_accuracy',
+        max_trials=10,  # Number of hyperparameter combinations to try
+        directory='my_dir',
+        project_name='hyperparameter_tuning'
+    )
+    
+    early_stopping = EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
+    
+    # Train the model
+    tuner.search(
+        model_dataset,
+        validation_data=val_dataset,
+        steps_per_epoch=1500,
+        epochs=10,
+        callbacks=[early_stopping]
+    )
+    
+    best_hps = tuner.get_best_hyperparameters(num_trials=1)[0]
+    
+    best_model = tuner.hypermodel.build(best_hps)
+    history = best_model.fit(
+        model_dataset,
+        validation_data=val_dataset,
+        steps_per_epoch=1500,
+        epochs=20,
+        callbacks=[early_stopping]
+    )
+    
+    # Evaluate the model
+    val_loss, val_accuracy = best_model.evaluate(val_dataset)
+    print(f"Validation Loss: {val_loss}, Validation Accuracy: {val_accuracy}")
+    
+    best_model.save('best_model.h5')
 
-early_stopping = EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
-
-# Train the model
-tuner.search(
-    model_dataset,
-    validation_data=val_dataset,
-    steps_per_epoch=1500,
-    epochs=10,
-    callbacks=[early_stopping]
-)
-
-best_hps = tuner.get_best_hyperparameters(num_trials=1)[0]
-
-best_model = tuner.hypermodel.build(best_hps)
-history = best_model.fit(
-    model_dataset,
-    validation_data=val_dataset,
-    steps_per_epoch=1500,
-    epochs=20,
-    callbacks=[early_stopping]
-)
-
-# Evaluate the model
-val_loss, val_accuracy = best_model.evaluate(val_dataset)
-print(f"Validation Loss: {val_loss}, Validation Accuracy: {val_accuracy}")
-
-best_model.save('best_model.h5')
+if __name__ == "__main__":
+    main()
